@@ -45,10 +45,13 @@ ${code}
     } catch (parseError) {
       throw new Error("Failed to parse Gemini JSON output: " + String(parseError));
     }
-  } catch (error: any) {
-    if (error.message?.includes("empty response") || error.message?.includes("Failed to parse")) {
-      throw error;
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      if (error.message.includes("empty response") || error.message.includes("Failed to parse")) {
+        throw error;
+      }
+      throw new Error(`Gemini request failed: ${error.message}`);
     }
-    throw new Error(`Gemini request failed: ${error.message || String(error)}`);
+    throw new Error(`Gemini request failed: ${String(error)}`);
   }
 }
