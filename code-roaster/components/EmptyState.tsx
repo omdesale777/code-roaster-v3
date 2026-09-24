@@ -1,5 +1,3 @@
-import React from "react";
-
 export function EmptyState() {
   return (
     <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-[#FAFAF8]">
@@ -10,7 +8,7 @@ export function EmptyState() {
         Awaiting Code Submission
       </h3>
       <p className="font-mono text-xs text-[#666] max-w-xs leading-relaxed">
-        Paste snippet on the left panel and click 'ROAST MY CODE' or press ⌘+Enter to receive an architectural diagnostic.
+        Paste your code on the left, then click &ldquo;ROAST MY CODE&rdquo; or press Ctrl+Enter (⌘+Enter on Mac).
       </p>
     </div>
   );

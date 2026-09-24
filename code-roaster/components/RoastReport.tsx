@@ -1,82 +1,69 @@
-import React from "react";
 import { EmptyState } from "./EmptyState";
 import { LoadingState } from "./LoadingState";
 import { ErrorState } from "./ErrorState";
 import { IssueCard } from "./IssueCard";
 import { FixedCode } from "./FixedCode";
-
-export type ReportState = "empty" | "loading" | "results" | "error";
+import { SectionHeader } from "./SectionHeader";
+import type { LanguageId, ReportState, RoastLevel, RoastResult } from "@/types/roast";
 
 interface RoastReportProps {
   state: ReportState;
-  roastLevel: string;
+  roastLevel: RoastLevel;
+  language: LanguageId;
+  result: RoastResult | null;
+  errorMsg: string;
+  onRetry: () => void;
   onApplyFix: (code: string) => void;
-  errorMsg?: string;
-  onRetry?: () => void;
 }
 
-export function RoastReport({ state, roastLevel, onApplyFix, errorMsg, onRetry }: RoastReportProps) {
+// Right-hand panel: shows the empty, loading, error or results view.
+export function RoastReport({ state, roastLevel, language, result, errorMsg, onRetry, onApplyFix }: RoastReportProps) {
   return (
-    <section className="w-full md:w-[46%] lg:w-[45%] flex flex-col bg-[#FAFAF8] h-full overflow-hidden">
+    <section className="w-full flex-1 min-h-0 md:flex-none md:w-[46%] lg:w-[45%] flex flex-col bg-[#FAFAF8] overflow-hidden">
       <div className="h-10 border-b border-frame bg-[#F7F7F5] flex items-center justify-between px-4 select-none shrink-0">
-        <span className="text-[11px] font-mono text-[#888]">AUDIT // REPORT</span>
-        <h2 className="font-sans font-bold text-sm tracking-[0.16em] uppercase text-frame">
-          Roast Report
-        </h2>
-        <div className="w-12"></div>
+        <span className="text-[11px] font-mono text-[#888]">AUDIT {"//"} REPORT</span>
+        <h2 className="font-sans font-bold text-sm tracking-[0.16em] uppercase text-frame">Roast Report</h2>
+        <div className="w-12" />
       </div>
 
       {state === "empty" && <EmptyState />}
       {state === "loading" && <LoadingState />}
-      {state === "error" && <ErrorState error={errorMsg || ""} onRetry={onRetry || (() => {})} />}
+      {state === "error" && <ErrorState error={errorMsg} onRetry={onRetry} />}
 
-      {state === "results" && (
+      {state === "results" && result && (
         <div className="flex-1 overflow-y-auto p-5 sm:p-6 lg:p-7 space-y-7">
           <article className="space-y-2">
-            <div className="flex items-center justify-between border-b border-frame pb-1">
-              <span className="font-mono text-[11px] font-bold tracking-[0.2em] uppercase text-frame">
-                01 // ROAST
-              </span>
-              <span className="text-[10px] font-mono text-[#888] tracking-widest uppercase">
-                STYLE: {roastLevel}
-              </span>
-            </div>
-            <p className="text-sm md:text-[15px] font-mono leading-relaxed text-frame pt-1.5 font-normal">
-              "You initialized <code className="bg-[#ECECE8] px-1 py-0.5 border border-[#D5D5CD] text-xs">total</code> correctly and then immediately added the entire list to it. The loop variable is watching this crime in real time."
+            <SectionHeader number={1} title="Roast">
+              <span className="text-[10px] font-mono text-[#888] tracking-widest uppercase">STYLE: {roastLevel}</span>
+            </SectionHeader>
+            <p className="text-sm md:text-[15px] font-mono leading-relaxed text-frame pt-1.5">
+              &ldquo;{result.roast}&rdquo;
             </p>
           </article>
 
-          <IssueCard
-            severity="FATAL BUG"
-            line={5}
-            title="TypeError: unhashable / operand mismatch"
-            codeSnippet="total += numbers"
-            diagnosis={
-              <>
-                The loop variable is <code className="bg-[#ECECE8] px-1 py-0.2">number</code>, but the code adds the entire <code className="bg-[#ECECE8] px-1 py-0.2">numbers</code> list to <code className="bg-[#ECECE8] px-1 py-0.2">total</code>.
-              </>
-            }
-            expected={
-              <>
-                Add the current scalar numeric value to <code className="bg-[#ECECE8] px-1 py-0.2">total</code> on every iteration.
-              </>
-            }
-          />
+          <article className="space-y-4">
+            <SectionHeader number={2} title="What's Wrong">
+              <span className="text-[10px] font-mono text-[#888] tracking-widest uppercase">
+                {result.issues.length} {result.issues.length === 1 ? "ISSUE" : "ISSUES"}
+              </span>
+            </SectionHeader>
+            {result.issues.length === 0 ? (
+              <p className="text-xs font-mono text-[#15803D]">No issues found. Suspiciously clean.</p>
+            ) : (
+              result.issues.map((issue, index) => <IssueCard key={index} index={index} issue={issue} />)
+            )}
+          </article>
 
-          <FixedCode
-            filename="solution.py"
-            rawCode={`def calculate_average(numbers):\n    total = 0\n    for number in numbers:\n        total += number\n    return total / len(numbers)`}
-            codeHtml={
-              <pre className="font-mono text-xs leading-[20px] m-0">
-                <span className="text-[#164E63] font-bold">def</span> <span className="text-[#0F172A] font-bold">calculate_average</span>(<span className="text-[#1E293B]">numbers</span>):
-                <br />    <span className="text-[#1E293B]">total</span> = <span className="text-[#854D0E] font-medium">0</span>
-                <br />    <span className="text-[#164E63] font-bold">for</span> <span className="text-[#1E293B]">number</span> <span className="text-[#164E63] font-bold">in</span> <span className="text-[#1E293B]">numbers</span>:
-                <br />        <span className="text-[#1E293B]">total</span> <span className="text-[#475569]">+=</span> <span className="font-bold text-[#15803D] bg-[#ECFDF5] px-1">number</span>  <span className="text-[#15803D] font-sans font-medium text-[11px]"># Correct variable used</span>
-                <br />    <span className="text-[#164E63] font-bold">return</span> <span className="text-[#1E293B]">total</span> <span className="text-[#475569]">/</span> <span className="text-[#3730A3]">len</span>(<span className="text-[#1E293B]">numbers</span>)
-              </pre>
-            }
-            onApply={onApplyFix}
-          />
+          {result.correctedCode && (
+            <FixedCode sectionNumber={3} language={language} code={result.correctedCode} onApply={onApplyFix} />
+          )}
+
+          {result.takeaway && (
+            <article className="space-y-2">
+              <SectionHeader number={result.correctedCode ? 4 : 3} title="Takeaway" />
+              <p className="text-sm font-mono leading-relaxed text-[#333] pt-1.5">{result.takeaway}</p>
+            </article>
+          )}
         </div>
       )}
     </section>
