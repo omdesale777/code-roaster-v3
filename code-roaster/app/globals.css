@@ -1,9 +1,12 @@
 @import "tailwindcss";
 
-@theme {
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-mono);
+/* Font variables are created by next/font in app/layout.tsx */
+@theme inline {
+  --font-sans: var(--font-space-grotesk);
+  --font-mono: var(--font-jetbrains-mono);
+}
 
+@theme {
   --color-frame: #111111;
   --color-canvas: #F5F5F3;
   --color-panel: #FDFDFD;
@@ -18,20 +21,6 @@ body {
     linear-gradient(to right, rgba(18, 18, 18, 0.045) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(18, 18, 18, 0.045) 1px, transparent 1px);
   background-size: 24px 24px;
-}
-
-/* Restrained code syntax styling */
-.token-keyword { color: #164E63; font-weight: 600; }
-.token-def { color: #0F172A; font-weight: 700; }
-.token-var { color: #1E293B; }
-.token-number { color: #854D0E; font-weight: 500; }
-.token-op { color: #475569; }
-.token-builtin { color: #3730A3; }
-
-/* Error line squiggle indicator */
-.error-squiggly {
-  text-decoration: underline wavy #D94826;
-  text-underline-offset: 3px;
 }
 
 /* Custom scrollbar for technical blueprint feel */

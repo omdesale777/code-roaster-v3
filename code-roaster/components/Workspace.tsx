@@ -1,44 +1,66 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { TopBar } from "./TopBar";
 import { RoastControls } from "./RoastControls";
+import { ErrorMessageInput } from "./ErrorMessageInput";
 import { CodeEditor } from "./CodeEditor";
-import { RoastReport, ReportState } from "./RoastReport";
+import { RoastReport } from "./RoastReport";
+import { StatusBar } from "./StatusBar";
+import { DEFAULTS, SAMPLE } from "@/config/app.config";
+import { requestRoast } from "@/lib/api";
+import type { LanguageId, ReportState, RoastLevel, RoastResult } from "@/types/roast";
 
-type RoastLevel = "dry" | "savage" | "sharp";
-
+// The main screen. Owns all app state and passes it down to the smaller components.
 export function Workspace() {
-  const [roastLevel, setRoastLevel] = useState<RoastLevel>("savage");
-  const [language, setLanguage] = useState("python");
+  const [roastLevel, setRoastLevel] = useState<RoastLevel>(DEFAULTS.roastLevel);
+  const [language, setLanguage] = useState<LanguageId>(DEFAULTS.language);
   const [code, setCode] = useState("");
-  const [reportState, setReportState] = useState<ReportState>("empty");
-  const [errorDrawerOpen, setErrorDrawerOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [errorDrawerOpen, setErrorDrawerOpen] = useState(false);
 
-  const handleRoast = () => {
+  const [reportState, setReportState] = useState<ReportState>("empty");
+  const [roastResult, setRoastResult] = useState<RoastResult | null>(null);
+  const [roastedCode, setRoastedCode] = useState("");
+  const [apiError, setApiError] = useState("");
+
+  const isRoasting = reportState === "loading";
+
+  const handleRoast = useCallback(async () => {
+    if (isRoasting) return;
+
     if (!code.trim()) {
-      // Mock an error if empty
+      setApiError("No code provided. I can't roast the void.");
       setReportState("error");
-      setErrorMessage("No code provided. I can't roast the void.");
       return;
     }
 
     setReportState("loading");
-    
-    // Simulate API delay
-    setTimeout(() => {
+    setRoastResult(null);
+    setApiError("");
+
+    try {
+      const result = await requestRoast({
+        language,
+        code,
+        roastLevel,
+        errorMessage: errorMessage.trim() || undefined,
+      });
+      setRoastResult(result);
+      setRoastedCode(code);
       setReportState("results");
-    }, 1500);
+    } catch (error) {
+      setApiError(error instanceof Error ? error.message : "An unexpected error occurred.");
+      setReportState("error");
+    }
+  }, [isRoasting, code, language, roastLevel, errorMessage]);
+
+  const handleLoadSample = () => {
+    setLanguage(SAMPLE.language);
+    setCode(SAMPLE.code);
   };
 
-  const handleApplyFix = (fixedCode: string) => {
-    setCode(fixedCode);
-    // In a real app, you might clear the report or show a success state.
-    // For now, let's keep the results visible so they can see what was fixed.
-  };
-
-  // Listen for Cmd+Enter
+  // Ctrl+Enter (Windows/Linux) or Cmd+Enter (Mac) runs the roast from anywhere on the page.
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
@@ -48,72 +70,55 @@ export function Workspace() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [code, roastLevel, language]);
+  }, [handleRoast]);
+
+  // Highlight the first issue's line, but only while the editor still holds the code that was roasted.
+  const errorLine =
+    reportState === "results" && code === roastedCode ? roastResult?.issues[0]?.line : undefined;
 
   return (
     <main className="w-full max-w-[1360px] mx-auto my-6 md:my-10 h-[calc(100vh-6rem)] min-h-[760px] max-h-[920px] bg-[#FAFAF8] border-2 border-frame flex flex-col shadow-[6px_6px_0px_rgba(0,0,0,0.06)] relative overflow-hidden">
       <TopBar>
         <RoastControls
           roastLevel={roastLevel}
-          setRoastLevel={setRoastLevel}
+          onRoastLevelChange={setRoastLevel}
           language={language}
-          setLanguage={setLanguage}
+          onLanguageChange={setLanguage}
           onRoast={handleRoast}
-          isRoasting={reportState === "loading"}
-          toggleErrorDrawer={() => setErrorDrawerOpen(!errorDrawerOpen)}
+          isRoasting={isRoasting}
           errorDrawerOpen={errorDrawerOpen}
+          onToggleErrorDrawer={() => setErrorDrawerOpen((open) => !open)}
         />
       </TopBar>
 
       {errorDrawerOpen && (
-        <div className="border-b-2 border-frame bg-[#EFEFEA] px-5 py-2.5 text-xs font-mono">
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-[#555]">
-              Attach Terminal Traceback / Compiler Error (Optional)
-            </span>
-            <button
-              onClick={() => setErrorDrawerOpen(false)}
-              className="text-xs hover:underline text-[#666]"
-            >
-              Dismiss ✕
-            </button>
-          </div>
-          <textarea
-            className="w-full text-xs font-mono border border-frame p-2 bg-white focus:outline-none focus:ring-0 focus:border-frame resize-none"
-            placeholder="TypeError: unsupported operand type(s) for +=: 'int' and 'list'..."
-            rows={2}
-          ></textarea>
-        </div>
+        <ErrorMessageInput
+          value={errorMessage}
+          onChange={setErrorMessage}
+          onClose={() => setErrorDrawerOpen(false)}
+        />
       )}
 
-      <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+      <div className="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden">
         <CodeEditor
           code={code}
           onChange={setCode}
           language={language}
-          errorLine={reportState === "results" ? 5 : undefined}
+          errorLine={errorLine}
+          onLoadSample={handleLoadSample}
         />
         <RoastReport
           state={reportState}
           roastLevel={roastLevel}
-          onApplyFix={handleApplyFix}
-          errorMsg={errorMessage}
+          language={language}
+          result={roastResult}
+          errorMsg={apiError}
           onRetry={handleRoast}
+          onApplyFix={setCode}
         />
       </div>
 
-      <footer className="border-t-2 border-frame bg-[#F7F7F5] px-4 py-1.5 flex items-center justify-between text-[11px] font-mono text-[#666] select-none shrink-0">
-        <div className="flex items-center gap-4">
-          <span>
-            STATUS: <strong className="text-emerald-700">ONLINE (STATIC ENGINE)</strong>
-          </span>
-          <span className="hidden sm:inline">|</span>
-          <span className="hidden sm:inline">PARSE LATENCY: 22ms</span>
-        </div>
-        <div>
-          <span className="tracking-wide">DRAFTING FRAMEWORK // ARCH SPEC REV-2</span>
-        </div>
-      </footer>
+      <StatusBar isRoasting={isRoasting} />
     </main>
   );
 }

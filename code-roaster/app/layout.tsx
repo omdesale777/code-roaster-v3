@@ -1,20 +1,22 @@
 import type { Metadata } from "next";
 import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
+import { APP } from "@/config/app.config";
 import "./globals.css";
 
+// These CSS variables are mapped to Tailwind's font-sans / font-mono in globals.css
 const spaceGrotesk = Space_Grotesk({
-  variable: "--font-sans",
+  variable: "--font-space-grotesk",
   subsets: ["latin"],
 });
 
 const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-mono",
+  variable: "--font-jetbrains-mono",
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: "CODE ROASTER — Developer Code Critique Utility",
-  description: "Your code. Our problem now.",
+  title: `${APP.name} — AI Code Critique`,
+  description: APP.tagline,
 };
 
 export default function RootLayout({

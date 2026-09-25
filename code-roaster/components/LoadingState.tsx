@@ -1,5 +1,3 @@
-import React from "react";
-
 export function LoadingState() {
   return (
     <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-[#FAFAF8]">
