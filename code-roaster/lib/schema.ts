@@ -1,5 +1,7 @@
-import { Type, Schema } from "@google/genai";
+import { Type, type Schema } from "@google/genai";
+import { SEVERITIES } from "@/config/app.config";
 
+// Forces Gemini to reply with JSON in exactly this shape (mirrors RoastResult in types/roast.ts).
 export const roastResponseSchema: Schema = {
   type: Type.OBJECT,
   properties: {
@@ -9,12 +11,12 @@ export const roastResponseSchema: Schema = {
     },
     issues: {
       type: Type.ARRAY,
-      description: "List of issues found in the code",
+      description: "List of issues found in the code, most serious first",
       items: {
         type: Type.OBJECT,
         properties: {
-          line: { type: Type.INTEGER },
-          severity: { type: Type.STRING, description: "FATAL BUG, CODE SMELL, or OPTIMIZATION" },
+          line: { type: Type.INTEGER, description: "1-based line number in the submitted code" },
+          severity: { type: Type.STRING, enum: [...SEVERITIES] },
           title: { type: Type.STRING },
           codeSnippet: { type: Type.STRING },
           diagnosis: { type: Type.STRING },

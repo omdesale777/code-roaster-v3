@@ -1,53 +1,55 @@
 import { NextResponse } from "next/server";
 import { analyzeCode } from "@/lib/gemini";
+import { DEFAULTS, LANGUAGES, LIMITS, ROAST_LEVELS } from "@/config/app.config";
+import type { LanguageId, RoastLevel } from "@/types/roast";
 
-const VALID_ROAST_LEVELS = ["dry", "sharp", "savage"];
-const VALID_LANGUAGES = ["Python", "JavaScript", "TypeScript", "Java", "C", "C++"];
-
+// POST /api/roast  →  validates the request, asks Gemini, returns a RoastResult as JSON.
 export async function POST(request: Request) {
+  let body: Record<string, unknown>;
   try {
-    const body = await request.json();
-    const { language, code, errorMessage, roastLevel } = body;
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Request body must be valid JSON." }, { status: 400 });
+  }
 
-    // Validation
-    if (!code || typeof code !== "string") {
-      return NextResponse.json({ error: "Code is required and must be a string." }, { status: 400 });
-    }
-    if (code.length > 8000) {
-      return NextResponse.json({ error: "Code exceeds maximum length of 8000 characters." }, { status: 400 });
-    }
+  const code = typeof body.code === "string" ? body.code : "";
+  const errorMessage = typeof body.errorMessage === "string" ? body.errorMessage.trim() : "";
 
-    if (errorMessage && (typeof errorMessage !== "string" || errorMessage.length > 2000)) {
-      return NextResponse.json({ error: "Error message must be a string up to 2000 characters." }, { status: 400 });
-    }
+  if (!code.trim()) {
+    return NextResponse.json({ error: "No code provided." }, { status: 400 });
+  }
+  if (code.length > LIMITS.maxCodeLength) {
+    return NextResponse.json(
+      { error: `Code is too long. Keep it under ${LIMITS.maxCodeLength.toLocaleString()} characters.` },
+      { status: 400 }
+    );
+  }
+  if (errorMessage.length > LIMITS.maxErrorMessageLength) {
+    return NextResponse.json(
+      { error: `Error message is too long. Keep it under ${LIMITS.maxErrorMessageLength.toLocaleString()} characters.` },
+      { status: 400 }
+    );
+  }
 
-    if (!VALID_ROAST_LEVELS.includes(roastLevel)) {
-      return NextResponse.json({ error: "Invalid roastLevel. Must be dry, sharp, or savage." }, { status: 400 });
-    }
+  // Unknown values fall back to the defaults instead of reaching the AI.
+  const language = LANGUAGES.some((l) => l.id === body.language)
+    ? (body.language as LanguageId)
+    : DEFAULTS.language;
+  const roastLevel = ROAST_LEVELS.some((l) => l.id === body.roastLevel)
+    ? (body.roastLevel as RoastLevel)
+    : DEFAULTS.roastLevel;
 
-    // Since validation requires one of the exact languages, we do a case-insensitive check or exact match
-    // The prompt says "language must be one of: Python, JavaScript, TypeScript, Java, C, C++"
-    if (!VALID_LANGUAGES.includes(language)) {
-      return NextResponse.json({ error: "Invalid language. Supported languages: Python, JavaScript, TypeScript, Java, C, C++" }, { status: 400 });
-    }
-
-    // Call analyzeCode exactly once
-    const result = await analyzeCode(language, code, errorMessage || undefined, roastLevel);
-
-    return NextResponse.json(result, { status: 200 });
-  } catch (error: unknown) {
-    const errorString = String(error);
-    
-    // Check for 429 / Quota / Rate limit
-    if (
-      errorString.toLowerCase().includes("429") || 
-      errorString.toLowerCase().includes("quota") || 
-      errorString.toLowerCase().includes("rate limit")
-    ) {
-      return NextResponse.json({ error: "Too many requests. Please try again later." }, { status: 429 });
-    }
-
-    // Default to 500 without exposing internal stack traces
-    return NextResponse.json({ error: "An internal server error occurred during code analysis." }, { status: 500 });
+  try {
+    const result = await analyzeCode({
+      language,
+      code,
+      roastLevel,
+      errorMessage: errorMessage || undefined,
+    });
+    return NextResponse.json(result);
+  } catch (error) {
+    console.error("Roast API error:", error);
+    const message = error instanceof Error ? error.message : "An unexpected error occurred.";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
